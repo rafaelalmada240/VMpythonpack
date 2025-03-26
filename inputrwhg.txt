@@ -1,0 +1,20 @@
+tissues-15
+ex-0.001
+et-0.02
+K-1.
+G-0.0
+povecbool-0
+p0-0.0
+gw-0.5
+T-5
+UseT1bool-1
+SimpleOutput-0
+woundsize-1
+foldername-/home/rafael/Documents/2nd Year/backup5git/tissues
+p0min-2.5
+p0max-3.5
+p0bin-11
+gwmin-1.0
+gwmax-10.0
+gwstep-6
+
