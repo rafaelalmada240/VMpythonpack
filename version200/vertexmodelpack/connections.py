@@ -1,11 +1,25 @@
 import numpy as np
 import networkx as nx
 
+
+##  A utility module for analyzing and manipulating Voronoi tessellations, with applications in computational geometry, physics simulations, or biological modeling (e.g., cell networks).
+
+################################################################ Geometric Operations #################################################################
 def norm(vec):
     return np.linalg.norm(vec)
 
 def vertices_in_bound(vertices,L):
-    "Ensures all vertices are within bounds"
+    """Clips vertex coordinates to stay within a bounding box of size [-L, L] in all dimensions.
+    
+    Args:
+        vertices (list or array): List of vertices (each vertex is a list/array of coordinates).
+        L (float): Half the side length of the bounding box.
+    
+    Returns:
+        list: Vertices with coordinates clipped to [-L, L].
+        
+    Useful for enforcing periodic or constrained boundary conditions.
+    """
     
     for vertex in vertices:
         for i in range(len(vertex)):
@@ -16,91 +30,42 @@ def vertices_in_bound(vertices,L):
                 
     return vertices
 
-def remove_minus(ridges):
-    if isinstance(ridges,np.ndarray):
-        ridges = ridges.tolist()
-        
-    index_to_remove = []
-    for ridge in ridges:
-        for elem in ridge:
-            if elem == -1:
-                index_to_remove.append(ridge)
-    
-    for j in index_to_remove:
-        ridges.remove(j)
-    return ridges
-
-def adj_mat(R,ridges):
-    arrayR = np.array(R)
-    bin_mat = np.zeros((len(R),len(R)))
-    for vi in R:
-        N_v = find_vertex_neighbour_vertices(ridges,vi)
-        loc_i = np.argwhere(arrayR==vi)[0][0]
-        for vj in N_v:
-            if vj in R:
-                loc_j = np.argwhere(arrayR==vj)[0][0]
-                bin_mat[loc_i,loc_j] = 1
-    
-    return bin_mat
-
-def flatten(l):
-    return [item for sublist in l for item in sublist]
-
-def rearrange(n, bin_mat,to_print = False):
-        
-    G = nx.from_numpy_array(bin_mat)
-    cyclesG = nx.cycle_basis(G,0)
-
-    #print("sorted"+str(sorted(cyclesG)))
-    if len(cyclesG)>0:
-        arr_new = sorted(cyclesG)[0]
-        if to_print == True:
-            print(arr_new)
-    else:
-        arr_new = list(np.arange(n))
-
-      
-    return arr_new
-
-def rearrange_regions(regions,point_region,ridges):
-    new_regions = []
-    for c in point_region:
-        R = find_center_region(regions,point_region,c)
-        rearrange_loc = rearrange(len(R),adj_mat(R,ridges))
-        R = [R[i] for i in rearrange_loc]
-        new_regions.append(R)
-    return new_regions
-
-
- 
-def nsides_vor(point_region,regions,i):
-
-    R = find_center_region(regions,point_region,i)
-    nsides=len(R)
-    return nsides
 
 
 ############################ Find elements in neighbourhoods #################################################
                 
 
-#Auxiliary functions to find locations of vertices and centers
-
 def find_center_region(regions,point_region,center):
-    '''Gives all the neighbours of a center in a voronoi tesselation (removes all -1 vertices)'''
-    point = point_region[center]
-    R = regions[point]
+    """Retrieves the vertices of a Voronoi region associated with a center point, excluding invalid vertices (-1).
+
+    Args:
+        regions (list): List of all Voronoi regions (each region is a list of vertex indices).
+        point_region (list): Maps each center point to its Voronoi region index.
+        center (int): Index of the center point.
+
+    Returns:
+        list: Vertex indices of the region, excluding -1 (invalid vertices, often used for infinite vertices in Voronoi tessellations).
+    """
+    #point = point_region[center]
+    #R = regions[point]
     
-    for e in R:
-        if e==-1:
-            R.remove(e)
+    #for e in R:
+    #    if e == -1:
+    #        R.remove(e)
+    R = [v for v in regions[point_region[center]] if v != -1]
     return R
 
 def find_vertex_neighbour_vertices(ridges,vertex):
     
-    '''
-    The function receives as input the list of ridges (equivalent to the set of edges E) and 
-    an integer corresponding to the vertex v_i, and return a list of vertices v_j, such that (v_i, v_j) is in E
-    '''
+    """Finds all neighboring vertices of a given vertex based on ridge (edge) connections.
+
+    Args:
+        ridges (list): List of ridges (edges) as pairs/tuples of vertex indices.
+        vertex (int): Target vertex index.
+
+    Returns:
+        np.ndarray: Sorted array of adjacent vertex indices (excluding -1 and the input vertex).
+    """
 
     list_vertex_neigh = []
        
@@ -115,17 +80,18 @@ def find_vertex_neighbour_vertices(ridges,vertex):
 
 def find_vertex_neighbour_centers(regions, point_region,vertex):
     
-    '''
-    Inputs: 
-    regions - (list) set of all the vertices that compose the different regions of the network
-    Some regions are empty, but it is best not to remove them for consistency
-    point_region - (list) set of the different regions of the network
-    vertex - (int) a specific vertex
-    
-    Outputs:
-    list_regions, list_centers - list of regions and corresponding centers that are neighbouring a vertex.
-    
-    '''
+    """Finds all Voronoi regions (and their centers) that share a given vertex.
+
+    Args:
+        regions (list): List of all Voronoi regions.
+        point_region (list): Maps center points to region indices.
+        vertex (int): Vertex index to query.
+
+    Returns:
+        tuple: (list_regions, list_centers) where:
+            - list_regions: Indices of regions containing the vertex.
+            - list_centers: Corresponding center points of those regions.
+    """
     list_regions = []
     list_centers = []
     i = 0
@@ -144,18 +110,19 @@ def find_vertex_neighbour_centers(regions, point_region,vertex):
 
 def find_vertex_neighbour(regions, point_region, ridges,vertex):
     
-    '''
-    Inputs: 
-    regions - (list) set of all the vertices that compose the different regions of the network
-    Some regions are empty, but it is best not to remove them for consistency
-    point_region - (list) set of the different regions of the network
-    ridges - (list) set of all edges in the network
-    vertex - (int) a specific vertex
-    
-    Outputs:
-    list_vertex neigh, list_centers - list of centers and vertices that are neighbouring a vertex.
-    
-    '''
+    """Combines vertex and center neighbors for a given vertex.
+
+    Args:
+        regions (list): List of all Voronoi regions.
+        point_region (list): Maps centers to region indices.
+        ridges (list): List of ridges (edges).
+        vertex (int): Target vertex index.
+
+    Returns:
+        tuple: (list_centers, list_vertex_neigh) where:
+            - list_centers: Sorted array of neighboring center indices.
+            - list_vertex_neigh: Sorted array of neighboring vertex indices.
+    """
     
     #Gives all the neighbours of a vertex in a voronoi tesselation (removes all -1 vertices)
     
@@ -171,6 +138,16 @@ def find_vertex_neighbour(regions, point_region, ridges,vertex):
     return np.sort(list_centers), np.sort(list_vertex_neigh)    
 
 def find_center_neighbour_center(regions,point_region,center):
+    """Finds all neighboring Voronoi centers for a given center.
+
+    Args:
+        regions (list): List of all Voronoi regions.
+        point_region (list): Maps centers to region indices.
+        center (int): Target center index.
+
+    Returns:
+        list: Indices of adjacent Voronoi centers (excluding the input center).
+    """
     
     # Find all neighbouring cells for a given cell i
     List_centers = []
@@ -182,20 +159,20 @@ def find_center_neighbour_center(regions,point_region,center):
     List_centers.remove(center)
     return List_centers
 
+############################################################ Boundary Detection ###########################################################
+
 def find_boundary_vertices(n_vertices,ridges):
-    '''
-    This function finds all vertices in the boundary of the network, under the initial assumption that vertices have 3 connections in planar graphs if they are in a bulk and 2 edges or less if they are in the boundary
-    
-    Variables:
-    
-    n_vertices - is the number of vertices in the network (the cardinality of the vertex set)
-    
-    ridges - is the set of all edges in the network
-    
-    Output:
-    
-    Bound_set - the set containing all vertices that are in the boundary, this list doesn't contain all vertices in the boundary, but it ensures all vertices in the list are in the boundary.
-    '''
+    """Identifies boundary vertices in a planar graph (degree < 3).
+
+    Args:
+        n_vertices (int): Total number of vertices.
+        ridges (list): List of ridges (edges).
+
+    Returns:
+        list: Vertex indices on the boundary (degree ≤ 2 or adjacent to low-degree vertices).
+        
+    Assumption: Boundary vertices have fewer than 3 edges (bulk vertices have ≥ 3)
+    """
     vertex_list = []
     
     ridges = remove_minus(ridges)
@@ -246,21 +223,17 @@ def find_boundary_vertices(n_vertices,ridges):
     return Bound_set
 
 def find_boundary_vertices_square(n_vertices,ridges):
-    '''
-    This function finds all vertices in the boundary of the network, under the initial assumption
-    that vertices have 4 connections in square graphs if they are in a bulk and 3 edges or less if they are in the boundary
-    This is an adaptation of find_boundary vertices for a square lattice.
-    
-    Variables:
-    
-    n_vertices - is the number of vertices in the network (the cardinality of the vertex set)
-    
-    ridges - is the set of all edges in the network
-    
-    Output:
-    
-    Bound_set - the set containing all vertices that are in the boundary, this list doesn't contain all vertices in the boundary, but it ensures all vertices in the list are in the boundary.
-    '''
+    """Identifies boundary vertices in a square lattice (degree < 4).
+
+    Args:
+        n_vertices (int): Total number of vertices.
+        ridges (list): List of ridges (edges).
+
+    Returns:
+        list: Vertex indices on the boundary (degree ≤ 3).
+        
+    Adapts find_boundary_vertices for square lattices (bulk degree = 4)
+    """
     vertex_list = []
     
     ridges = remove_minus(ridges)
@@ -280,6 +253,147 @@ def find_boundary_vertices_square(n_vertices,ridges):
     return Bound_set
 
 def find_wound_boundary(regions, point_region, wound_loc):
+    """Retrieves vertices of a Voronoi region representing a wound boundary.
+
+    Args:
+        regions (list): List of all Voronoi regions.
+        point_region (list): Maps centers to region indices.
+        wound_loc (int): Center index of the wound region.
+
+    Returns:
+        list: Vertex indices of the wound boundary (equivalent to `find_center_region`).
+    
+     Labels wound boundaries in biological or physical simulations.
+    """
     return find_center_region(regions,point_region,wound_loc)
+
+
+################################## Adjacency matrix and Graph Operation functions ###########################################
+
+def adj_mat(R,ridges):
+    """Constructs an adjacency matrix for a subset of vertices `R` based on ridge connections.
+    
+    Args:
+        R (list): List of vertex indices.
+        ridges (list): List of ridges defining connections between vertices.
+    
+    Returns:
+        np.ndarray: Binary adjacency matrix where `1` indicates connected vertices.
+    """
+    arrayR = np.array(R)
+    bin_mat = np.zeros((len(R),len(R)))
+    for vi in R:
+        N_v = find_vertex_neighbour_vertices(ridges,vi)
+        loc_i = np.argwhere(arrayR==vi)[0][0]
+        for vj in N_v:
+            if vj in R:
+                loc_j = np.argwhere(arrayR==vj)[0][0]
+                bin_mat[loc_i,loc_j] = 1
+    
+    return bin_mat
+
+
+
+def rearrange(n, bin_mat,to_print = False):
+    
+    """Reorders indices based on the shortest cycle in the adjacency graph.
+    
+    Args:
+        n (int): Number of vertices.
+        bin_mat (np.ndarray): Adjacency matrix.
+        to_print (bool): If True, prints the reordered cycle.
+    
+    Returns:
+        list: Reordered indices (prioritizing cycles if they exist).
+    """
+        
+    G = nx.from_numpy_array(bin_mat)
+    cyclesG = nx.cycle_basis(G,0)
+
+    #print("sorted"+str(sorted(cyclesG)))
+    if len(cyclesG)>0:
+        arr_new = sorted(cyclesG)[0]
+        if to_print == True:
+            print(arr_new)
+    else:
+        arr_new = list(np.arange(n))
+
+      
+    return arr_new
+
+def rearrange_regions(regions,point_region,ridges):
+    """Reorders vertices in each region based on cyclic adjacency.
+    
+    Args:
+        regions (list): List of regions (each region is a list of vertex indices).
+        point_region (list): Maps points to their respective regions.
+        ridges (list): Ridge definitions for adjacency.
+    
+    Returns:
+        list: Regions with vertices reordered cyclically.
+    """
+    new_regions = []
+    for c in point_region:
+        R = find_center_region(regions,point_region,c)
+        rearrange_loc = rearrange(len(R),adj_mat(R,ridges))
+        R = [R[i] for i in rearrange_loc]
+        new_regions.append(R)
+    return new_regions
+
+########################################################################## Auxiliary Utility functions ##########################################################################
+def flatten(l):
+    """Flattens a nested list into a 1D list.
+    
+    Args:
+        l (list): Nested list (e.g., [[a, b], [c]]).
+    
+    Returns:
+        list: Flattened list (e.g., [a, b, c]).
+    """
+    return [item for sublist in l for item in sublist]
+ 
+def nsides_vor(point_region,regions,i):
+    """Returns the number of sides (vertices) of the Voronoi region for point `i`.
+    
+    Args:
+        point_region (list): Maps points to region indices.
+        regions (list): List of all regions.
+        i (int): Index of the point of interest.
+    
+    Returns:
+        int: Number of sides of the Voronoi region.
+    
+    A Voronoi region with n vertices is an n-sided polygon.
+    """
+
+    R = find_center_region(regions,point_region,i)
+    nsides=len(R)
+    return nsides
+
+def remove_minus(ridges):
+    """Removes ridges (edges) containing the placeholder value -1.
+    
+    Args:
+        ridges (list or np.ndarray): List of ridges (each ridge is a list of vertex indices).
+    
+    Returns:
+        list: Ridges with entries containing -1 removed.
+        
+        Converts NumPy arrays to lists for compatibility with list operations.
+    """
+    if isinstance(ridges,np.ndarray):
+        ridges = ridges.tolist()
+        
+    index_to_remove = []
+    for ridge in ridges:
+        for elem in ridge:
+            if elem == -1:
+                index_to_remove.append(ridge)
+    
+    for j in index_to_remove:
+        ridges.remove(j)
+    return ridges
+
+
 
 

@@ -6,25 +6,81 @@ from scipy import ndimage as nd
 from vertexmodelpack import connections as fc
 
 def newMod(a,b):
+    """Applies a symmetric periodic boundary condition to position coordinates.
+    
+    This function ensures positions stay within [-b, b) by:
+    1. Wrapping values > b to [-b, 0)
+    2. Wrapping values < -b to [0, b)
+    3. Leaving values within [-b, b] unchanged
+    
+    Args:
+        a (np.ndarray): N x 2 array of 2D positions
+        b (float): Boundary size (periodicity length)
+    
+    Returns:
+        np.ndarray: Positions mapped to [-b, b) interval
+    
+    Mathematical Formulation:
+        For each coordinate x:
+        - If x > b: (x % b) - b → [-b, 0)
+        - If x < -b: -((-x) % b) + b → [0, b)
+        - Else: x remains unchanged
+    
+    Example:
+        >>> a = np.array([[3.5, -4.2], [1.0, -1.9]])
+        >>> newMod(a, 2.0)
+        array([[-0.5,  1.8],  # 3.5→-0.5, -4.2→1.8
+               [ 1.0, -1.9]]) # unchanged
+    """
     res = np.zeros(a.shape)
     for i in range(a.shape[0]):
         for j in range(a.shape[1]):
-            res[i,j] = a[i,j]%b
-            if a[i,j]<0:
-                res[i,j] -= b
+            res[i,j] = (a[i,j]%b-b)*(a[i,j]>=b)+(-((-a[i,j])%b)+b)*(a[i,j]<=-b) + (a[i,j])*(np.abs(a[i,j])< b)
     return res 
 
 def newWhere(a,b):
+    """Generates a sign mask for reflexive boundary conditions based on whether positions lie inside/outside a radius `b`.
+    
+    Args:
+        a (np.ndarray): N x 2 array of 2D positions.
+        b (float): Boundary radius threshold.
+    
+    Returns:
+        np.ndarray: Mask where:
+            - `+1` if position `a[i]` has norm < `b` (inside boundary),
+            - `-1` if position `a[i]` has norm ≥ `b` (outside boundary).
+    
+    Example:
+        If `a = [[1, 0], [3, 4]]` and `b = 5`:
+        - Norms: [1.0, 5.0]
+        - Output: [[1], [-1]].
+    """
     newA = np.zeros(a.shape)
     for i in range(a.shape[0]):
-        for j in range(a.shape[1]):
-            newA[i,j] = np.abs(a[i,j])<b
-            if np.abs(a[i,j])>b:
-                newA[i,j] =  - 1
+        newA[i] = 1*(np.linalg.norm(a[i])<b)-1*(np.linalg.norm(a[i])>=b)
+
     return newA 
 
 
 def thermalize(regions, point_region,cells,vel,r0):
+    """Computes forces between cell centers to simulate thermalization (energy minimization).
+    
+    Args:
+        regions (list): Voronoi regions from `scipy.spatial.Voronoi`.
+        point_region (list): Maps cell indices to Voronoi regions.
+        cells (np.ndarray): Cell coordinates (N x 2).
+        vel (np.ndarray): Current velocities (unused in this function).
+        r0 (float): Equilibrium distance scaling factor.
+    
+    Returns:
+        np.ndarray: Force vectors (N x 2) acting on each cell.
+    
+    Forces are derived from a modified Lennard-Jones potential:
+        - Attractive/repulsive term: `-3*(ρ² - ρ)`, where `ρ = r0 / distance`.
+        - Elastic term: `-(distance - 1.25*r0)`.
+        The force model combines short-range repulsion and longer-range attraction.
+    """
+    
     LC = len(cells)
     FC = []
     
@@ -36,11 +92,10 @@ def thermalize(regions, point_region,cells,vel,r0):
             xy_n = cells[n_c]
             v_nc = xy_c-xy_n
             r_nc = fc.norm(v_nc)
-            l_nc =v_nc/(r_nc+1e-1)
+            l_nc =v_nc/(r_nc+1e-2)
             
-            #Lennard Jones
-            
-            rho = r0/(r_nc+1e-1)
+            #Modified Lennard-Jones Potential
+            rho = r0/(r_nc+1e-2)
             f_c += -3*(rho**2-rho)*l_nc-(r_nc-1.25*r0)*l_nc
                 
         FC.append(f_c)         
@@ -49,11 +104,29 @@ def thermalize(regions, point_region,cells,vel,r0):
 
 
 def newcoords(N):
+    """Generates and thermalizes initial cell coordinates within a circular domain.
+    
+    Args:
+        N (int): Number of cells.
+    
+    Returns:
+        np.ndarray: Thermalized cell coordinates (N x 2).
+    
+    Steps:
+        1. Initializes random coordinates in a circle.
+        2. Iteratively applies forces (`thermalize`) to minimize energy.
+        3. Enforces reflexive boundary conditions (`newWhere`).
+        4. Stops when average force drops below `thresh_f` or max steps reached.
+    """
     L_max = 4.5
     L_min = -4.5
+    
+    R = L_max
+    r = R*np.sqrt(np.random.rand(N))
+    th = 2*np.pi*np.random.rand(N)
 
-    x_coord = (L_max-L_min)*(np.random.rand(N)) + L_min
-    y_coord = (L_max-L_min)*(np.random.rand(N)) + L_min
+    x_coord = r*np.cos(th)
+    y_coord = r*np.sin(th)
 
     coords = np.array((x_coord,y_coord)).T
 
@@ -65,7 +138,7 @@ def newcoords(N):
 
     avg_f = 1
 
-    dt = 5*1e-2
+    dt = 1*1e-3
     DeltaL = L_max - L_min
     r0 = min(DeltaL/(3*np.sqrt(N)),0.5)
 
@@ -73,7 +146,10 @@ def newcoords(N):
     
     n_steps = int(input('Max steps for thermalization: '))
     
+    print(coords.shape)
+    
     fft_array = np.zeros((100,n_steps))
+    avg_f0 = 1
 
 
     while (avg_f > thresh_f) and steps < n_steps:
@@ -93,34 +169,20 @@ def newcoords(N):
     
         A = newWhere(coords + vel_array*dt,5)
         coords = coords + vel_array*dt*A
+        
 
         avg_f = np.mean(F_center**2)**0.5
+        
+        if steps == 0:
+            avg_f0 = 1*avg_f
+            
+        if steps%50 == 0:
+            print('steps: ')
+            print(avg_f/avg_f0)
         
         steps += 1
         
     print(steps)
-    print(avg_f)
+    print(avg_f/avg_f0)
     print("done")
     return coords
-
-
-        #xy_hist = np.histogram2d(coords[:,0],coords[:,1],bins=200)
-        #fft_hist = np.fft.fft2(nd.gaussian_filter(xy_hist[0],1))
-        #fft_x = np.mean(np.abs(np.fft.fftshift(fft_hist)),axis=1)
-        #fft_y = np.mean(np.abs(np.fft.fftshift(fft_hist)),axis=0)
-        
-        #dx = DeltaL/200
-        #freq = np.linspace(0,1,100)/(2*dx)
-        
-        #fft_array[:,steps] = (fft_x-nd.gaussian_filter(fft_x,1))[100:]
-        
-        #plt.figure(figsize=(16,6))
-        #plt.subplot(131)
-        #plt.pcolormesh(np.abs(np.fft.fftshift(fft_hist)))
-        #plt.subplot(132)
-        #plt.plot(freq[:],(fft_x-nd.gaussian_filter(fft_x,1))[100:])
-        #plt.subplot(133)
-        #plt.pcolormesh(fft_array)
-        #plt.plot(fft_y)
-        #plt.savefig('f'+str(int(steps))+'.png',dpi=150)
-        #plt.close()
