@@ -5,7 +5,7 @@ import networkx as nx
 ##  A utility module for analyzing and manipulating Voronoi tessellations, with applications in computational geometry, physics simulations, or biological modeling (e.g., cell networks).
 
 ################################################################ Geometric Operations #################################################################
-def norm(vec):
+def norm(vec): ## I genuinely cannot recall why I had this in the first place, I could have just imported norm directly from np.linalg
     return np.linalg.norm(vec)
 
 def vertices_in_bound(vertices,L):
@@ -46,12 +46,6 @@ def find_center_region(regions,point_region,center):
     Returns:
         list: Vertex indices of the region, excluding -1 (invalid vertices, often used for infinite vertices in Voronoi tessellations).
     """
-    #point = point_region[center]
-    #R = regions[point]
-    
-    #for e in R:
-    #    if e == -1:
-    #        R.remove(e)
     R = [v for v in regions[point_region[center]] if v != -1]
     return R
 
@@ -95,15 +89,12 @@ def find_vertex_neighbour_centers(regions, point_region,vertex):
     list_regions = []
     list_centers = []
     i = 0
-
-        
+    
     for i in range(len(regions)):
     #Only consider neighbouring regions that form polygons
         if vertex in regions[i]:
             list_regions.append(i) 
-            #print(regions[i])
             loc_points = np.where(np.array(point_region)==i)
-            #print(loc_points)
             list_centers.append(loc_points[0][0])
              
     return list_regions, np.array(list_centers)
@@ -132,9 +123,7 @@ def find_vertex_neighbour(regions, point_region, ridges,vertex):
     else:
         list_regions, list_centers = ff 
     list_vertex_neigh = find_vertex_neighbour_vertices(ridges,vertex)
-    
-    
-    
+
     return np.sort(list_centers), np.sort(list_vertex_neigh)    
 
 def find_center_neighbour_center(regions,point_region,center):
