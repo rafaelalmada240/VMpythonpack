@@ -270,16 +270,12 @@ for tissue_n in tissues:
                     par_wound = (Lw, wloc, Boundaries[1])
                     F_vertex = sppv.force_vtx_parallel(tissue_vec2,par_vec, h, pool, True, par_wound)
                     
-                    par_cyto = ()
-                    F_cytov, Fcytoc = cyF.force_cytoskeleton(regions2, vertices_array[:,:,i], coords_array[:,:,i], par_cyto)
-                    
                     #Reflexive boundary conditions
                     A_vertex = rlt.newWhere(vertices_array[:,:,i]+ mu*F_vertex*dt,1.5*L_max)
-                    vertices_array[:,:,i+1] = vertices_array[:,:,i] + mu*A_vertex*(F_vertex)*dt#+mu*A_vertex*F_cytov*dt
+                    vertices_array[:,:,i+1] = vertices_array[:,:,i] + mu*A_vertex*(F_vertex)*dt
                    
                     #Cell center positions are the average of the cell vertex positions
                     coords_array[:,:,i+1] = sppv.cells_avg_vtx(regions2,pregions2,np.array(coords_array[:,:,i]),np.array(vertices_array[:,:,i+1]), pool)
-                    #coords_array[:,:,i+1] = coords_array[:,:,i] + mu*F_cytoc*dt
                     
                     #Save stress tensor components
                     S = sppv.stress_cell(regions2, pregions2, vertices_array[:,:,i+1], coords_array[:,:,i+1], F_vertex)
