@@ -22,11 +22,11 @@ def vertices_in_bound(vertices,L):
     """
     
     for vertex in vertices:
-        for i in range(len(vertex)):
-            if vertex[i] > L:
-                vertex[i] = L
-            if vertex[i] < -L:
-                vertex[i] = -L
+        for coordinate in range(len(vertex)):
+            if vertex[coordinate] > L:
+                vertex[coordinate] = L
+            if vertex[coordinate] < -L:
+                vertex[coordinate] = -L
                 
     return vertices
 
@@ -46,8 +46,8 @@ def find_center_region(regions,point_region,center):
     Returns:
         list: Vertex indices of the region, excluding -1 (invalid vertices, often used for infinite vertices in Voronoi tessellations).
     """
-    R = [v for v in regions[point_region[center]] if v != -1]
-    return R
+    Region = [vertex for vertex in regions[point_region[center]] if vertex != -1]
+    return Region
 
 def find_vertex_neighbour_vertices(ridges,vertex):
     
@@ -88,13 +88,13 @@ def find_vertex_neighbour_centers(regions, point_region,vertex):
     """
     list_regions = []
     list_centers = []
-    i = 0
+    index = 0
     
-    for i in range(len(regions)):
+    for index in range(len(regions)):
     #Only consider neighbouring regions that form polygons
-        if vertex in regions[i]:
-            list_regions.append(i) 
-            loc_points = np.where(np.array(point_region)==i)
+        if vertex in regions[index]:
+            list_regions.append(index) 
+            loc_points = np.where(np.array(point_region)==index)
             list_centers.append(loc_points[0][0])
              
     return list_regions, np.array(list_centers)
@@ -143,8 +143,8 @@ def find_center_neighbour_center(regions,point_region,center):
 
     R = find_center_region(regions, point_region, center)
     for v in R:
-        A, L_c = find_vertex_neighbour_centers(regions,point_region,v)
-        List_centers = list(set(List_centers).union(L_c))
+        _, List_center = find_vertex_neighbour_centers(regions,point_region,v)
+        List_centers = list(set(List_centers).union(List_center))
     List_centers.remove(center)
     return List_centers
 
@@ -166,21 +166,21 @@ def find_boundary_vertices(n_vertices,ridges):
     
     ridges = remove_minus(ridges)
     
-    for k in range(n_vertices):
-        vertex_list.append(k)
+    for index in range(n_vertices):
+        vertex_list.append(index)
         
     #Add all vertices that have less than 2 neighbours
     Bound_set = []
     Bound_set1 = []
     Bound_set_neighbours = []
     
-    for v in vertex_list:
-        Neigh_V = find_vertex_neighbour_vertices(ridges,v)
+    for vertex in vertex_list:
+        Neigh_V = find_vertex_neighbour_vertices(ridges,vertex)
         
 
         if len(Neigh_V) < 3:
-            Bound_set.append(v)
-            Bound_set1.append(v)
+            Bound_set.append(vertex)
+            Bound_set1.append(vertex)
             Bound_set_neighbours.append(Neigh_V)
 
     
